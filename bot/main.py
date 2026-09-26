@@ -11,6 +11,7 @@ from aiogram.enums import ParseMode
 from .config import Config
 from .db import Database
 from .handlers import admin, common, security, store
+from .profile import setup_profile
 from .seed import seed_products
 
 
@@ -32,6 +33,8 @@ async def main() -> None:
     store.register(dp, cfg, db)
     security.register(dp, cfg, db)
     admin.register(dp, cfg, db)
+
+    await setup_profile(bot)
 
     logging.info("Bot ishga tushdi. Adminlar: %s", cfg.admin_ids)
     try:
