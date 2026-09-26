@@ -12,6 +12,7 @@ from aiogram.types import (
 def main_menu(is_staff: bool = False) -> ReplyKeyboardMarkup:
     rows = [
         [KeyboardButton(text="🛒 Do'kon"), KeyboardButton(text="🛡 Xavfsizlik tekshiruvi")],
+        [KeyboardButton(text="💎 Obuna"), KeyboardButton(text="💳 Mening obunam")],
         [KeyboardButton(text="🌐 Mening domenlarim"), KeyboardButton(text="ℹ️ Yordam")],
     ]
     if is_staff:
@@ -54,5 +55,6 @@ def admin_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📦 Mahsulotlar", callback_data="adm:products")],
         [InlineKeyboardButton(text="👥 Operatorlar", callback_data="adm:ops")],
         [InlineKeyboardButton(text="📝 Engagement (ruxsatnoma)", callback_data="adm:eng")],
+        [InlineKeyboardButton(text="💎 Obuna rejalari", callback_data="adm:plans")],
         [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
     ])

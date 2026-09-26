@@ -22,6 +22,7 @@ WELCOME = (
 HELP = (
     "ℹ️ <b>Yordam</b>\n\n"
     "🛒 <b>Do'kon</b> — mahsulotni tanlang, ⭐ bilan to'lang, fayl/link avtomatik keladi.\n\n"
+    "💎 <b>Obuna</b> — /subscribe orqali yopiq kanalga oylik obuna (Telegram Stars).\n\n"
     "🛡 <b>Xavfsizlik tekshiruvi</b>\n"
     "• <b>Passiv</b> (bepul): SSL, HTTP header, DNS, security.txt — ochiq ma'lumot.\n"
     "• <b>Faol</b>: port skani — faqat tasdiqlangan domeningizga.\n\n"

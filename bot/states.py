@@ -19,6 +19,13 @@ class AddOperator(StatesGroup):
     tg_id = State()
 
 
+class AddPlan(StatesGroup):
+    title = State()
+    description = State()
+    price = State()
+    chat_id = State()
+
+
 class ScanFlow(StatesGroup):
     passive_domain = State()
     active_domain = State()

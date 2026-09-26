@@ -1,4 +1,4 @@
-aiogram==3.13.1
+aiogram>=3.15,<4  # kanal obunasi (create_chat_subscription_invite_link) uchun
 aiosqlite==0.20.0
 aiohttp==3.10.10
 dnspython==2.7.0

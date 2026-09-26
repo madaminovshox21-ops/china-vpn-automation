@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 COMMANDS = [
     BotCommand(command="start", description="Boshlash / asosiy menyu"),
     BotCommand(command="shop", description="🛒 Do'kon — mahsulotlar"),
+    BotCommand(command="subscribe", description="💎 Obuna — yopiq kanal"),
+    BotCommand(command="mysub", description="💳 Mening obunam"),
     BotCommand(command="verify", description="🌐 Domeningizni tasdiqlash"),
     BotCommand(command="check", description="✅ Tasdiqni tekshirish (/check domen)"),
     BotCommand(command="help", description="ℹ️ Yordam"),

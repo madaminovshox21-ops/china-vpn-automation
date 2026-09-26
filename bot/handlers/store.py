@@ -49,12 +49,10 @@ def register(router_parent: Router, cfg, db) -> None:
         # Stars uchun har doim ok; xohlasangiz bu yerda tekshiruv qo'shasiz
         await pcq.answer(ok=True)
 
-    @router.message(F.successful_payment)
+    @router.message(F.successful_payment.invoice_payload.startswith("product:"))
     async def on_paid(msg: Message):
         sp = msg.successful_payment
         payload = sp.invoice_payload
-        if not payload.startswith("product:"):
-            return
         pid = int(payload.split(":")[1])
         p = await db.get_product(pid)
         await db.add_purchase(

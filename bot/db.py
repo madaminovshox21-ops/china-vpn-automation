@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS engagements (
     created_at INTEGER NOT NULL
 );
 
+-- Obuna rejalari (yopiq kanal) — Telegram-native obuna invite linki bilan.
+-- To'lov/yangilanish/chiqarishni Telegram o'zi boshqaradi.
+CREATE TABLE IF NOT EXISTS subscription_plans (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT NOT NULL,
+    description  TEXT NOT NULL DEFAULT '',
+    price_stars  INTEGER NOT NULL,
+    period_days  INTEGER NOT NULL DEFAULT 30,
+    chat_id      TEXT NOT NULL,            -- yopiq kanal/guruh ID (masalan -100...)
+    invite_link  TEXT NOT NULL DEFAULT '', -- createChatSubscriptionInviteLink natijasi
+    active       INTEGER NOT NULL DEFAULT 1,
+    created_at   INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS scan_logs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     tg_id      INTEGER NOT NULL,
@@ -218,6 +232,35 @@ class Database:
             "SELECT * FROM engagements WHERE active=1 ORDER BY id DESC"
         )
         return list(await cur.fetchall())
+
+    # ---------- subscription plans (Telegram-native) ----------
+    async def add_plan(self, title, description, price_stars, period_days, chat_id, invite_link) -> int:
+        cur = await self.conn.execute(
+            """INSERT INTO subscription_plans
+                   (title, description, price_stars, period_days, chat_id, invite_link, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (title, description, price_stars, period_days, str(chat_id), invite_link, int(time.time())),
+        )
+        await self.conn.commit()
+        return cur.lastrowid
+
+    async def list_plans(self, only_active: bool = True) -> list[aiosqlite.Row]:
+        q = "SELECT * FROM subscription_plans"
+        if only_active:
+            q += " WHERE active=1"
+        q += " ORDER BY id DESC"
+        cur = await self.conn.execute(q)
+        return list(await cur.fetchall())
+
+    async def get_plan(self, pid: int) -> Optional[aiosqlite.Row]:
+        cur = await self.conn.execute("SELECT * FROM subscription_plans WHERE id=?", (pid,))
+        return await cur.fetchone()
+
+    async def set_plan_active(self, pid: int, active: bool) -> None:
+        await self.conn.execute(
+            "UPDATE subscription_plans SET active=? WHERE id=?", (1 if active else 0, pid)
+        )
+        await self.conn.commit()
 
     # ---------- logs ----------
     async def log_scan(self, tg_id, domain, scan_type, summary) -> None:

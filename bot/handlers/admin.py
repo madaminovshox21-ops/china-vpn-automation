@@ -4,14 +4,14 @@ Faqat admin (config ADMIN_IDS yoki DB role='admin') kira oladi.
 """
 from __future__ import annotations
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from ..access import is_admin
 from ..keyboards import admin_menu_kb
-from ..states import AddEngagement, AddOperator, AddProduct
+from ..states import AddEngagement, AddOperator, AddPlan, AddProduct
 
 router = Router()
 
@@ -226,5 +226,110 @@ def register(router_parent: Router, cfg, db) -> None:
         eid = await db.add_engagement(data["domain"], msg.text or "", msg.from_user.id)
         await state.clear()
         await msg.answer(f"✅ Engagement #{eid} yaratildi: {data['domain']}")
+
+    # ---------- obuna rejalari ----------
+    @router.callback_query(F.data == "adm:plans")
+    async def plans(cb: CallbackQuery):
+        if not await guard(cb.from_user.id):
+            await cb.answer("⛔", show_alert=True)
+            return
+        rows = await db.list_plans(only_active=False)
+        txt = "💎 <b>Obuna rejalari</b>\n\n"
+        if rows:
+            for p in rows:
+                st = "🟢" if p["active"] else "🔴"
+                txt += f"{st} #{p['id']} {p['title']} — ⭐{p['price_stars']}/{p['period_days']}k → {p['chat_id']}\n"
+        else:
+            txt += "Yo'q.\n"
+        txt += (
+            "\n➕ Yangi reja: /addplan\n"
+            "🔁 Yoq/o'chir: /toggleplan &lt;id&gt;\n\n"
+            "<i>Eslatma: botni yopiq kanalga ADMIN qiling (invite + a'zo chiqarish huquqi). "
+            "Kanal ID: -100... ko'rinishida.</i>"
+        )
+        await cb.message.answer(txt)
+        await cb.answer()
+
+    @router.message(Command("toggleplan"))
+    async def toggleplan(msg: Message):
+        if not await guard(msg.from_user.id):
+            return
+        parts = (msg.text or "").split()
+        if len(parts) < 2 or not parts[1].isdigit():
+            await msg.answer("Foydalanish: /toggleplan <id>")
+            return
+        p = await db.get_plan(int(parts[1]))
+        if not p:
+            await msg.answer("Topilmadi.")
+            return
+        await db.set_plan_active(int(parts[1]), not p["active"])
+        await msg.answer(f"Reja #{parts[1]} holati o'zgartirildi.")
+
+    @router.message(Command("addplan"))
+    async def addplan_start(msg: Message, state: FSMContext):
+        if not await guard(msg.from_user.id):
+            return
+        await state.set_state(AddPlan.title)
+        await msg.answer("💎 Yangi obuna rejasi.\n\nReja nomi (masalan: VIP kanal):")
+
+    @router.message(AddPlan.title)
+    async def plan_title(msg: Message, state: FSMContext):
+        await state.update_data(title=msg.text)
+        await state.set_state(AddPlan.description)
+        await msg.answer("Tavsif:")
+
+    @router.message(AddPlan.description)
+    async def plan_desc(msg: Message, state: FSMContext):
+        await state.update_data(description=msg.text)
+        await state.set_state(AddPlan.price)
+        await msg.answer("Oylik narx (Stars, butun son):")
+
+    @router.message(AddPlan.price)
+    async def plan_price(msg: Message, state: FSMContext):
+        if not (msg.text or "").strip().isdigit():
+            await msg.answer("Faqat son yuboring.")
+            return
+        await state.update_data(price=int(msg.text))
+        await state.set_state(AddPlan.chat_id)
+        await msg.answer(
+            "Yopiq kanal ID (masalan <code>-1001234567890</code>).\n\n"
+            "Bilish uchun: botni kanalga admin qiling, kanaldan biror xabarni "
+            "@username_to_id_bot ga forward qiling yoki @getidsbot dan oling."
+        )
+
+    @router.message(AddPlan.chat_id)
+    async def plan_chat(msg: Message, state: FSMContext, bot: Bot):
+        chat_id = (msg.text or "").strip()
+        if not (chat_id.lstrip("-").isdigit()):
+            await msg.answer("Kanal ID raqam bo'lishi kerak (masalan -1001234567890).")
+            return
+        data = await state.get_data()
+        # Telegram-native obuna invite linkini generatsiya qilamiz
+        try:
+            link = await bot.create_chat_subscription_invite_link(
+                chat_id=int(chat_id),
+                subscription_period=30 * 24 * 60 * 60,
+                subscription_price=int(data["price"]),
+                name=data["title"][:32],
+            )
+            invite = link.invite_link
+        except Exception as e:
+            await state.clear()
+            await msg.answer(
+                f"❌ Obuna linki yaratilmadi: {e}\n\n"
+                "Tekshiring:\n"
+                "• Bot o'sha kanalda ADMIN va «invite users» huquqiga ega bo'lsin\n"
+                "• Kanal ID to'g'ri (-100... ko'rinishida)\n"
+                "• Narx 1–2500 Stars oralig'ida"
+            )
+            return
+        pid = await db.add_plan(data["title"], data["description"], data["price"], 30, chat_id, invite)
+        await state.clear()
+        await msg.answer(
+            f"✅ Obuna rejasi #{pid} yaratildi: {data['title']} — ⭐{data['price']}/oy\n\n"
+            f"🔗 Obuna linki:\n{invite}\n\n"
+            "Foydalanuvchilar /subscribe orqali ham ko'radi. To'lov, yangilanish va "
+            "chiqarishni Telegram avtomatik boshqaradi."
+        )
 
     router_parent.include_router(router)

@@ -90,6 +90,25 @@ qo'shing (`kind: "path"`, `file: "..."`). Markdown'dan PDF: `python tools/build_
 
 Yetkazish turlari: `path` (lokal fayl), `file` (Telegram file_id), `link`, `text`.
 
+## Obuna (yopiq kanal)
+
+Telegram-native kanal obunasi (`createChatSubscriptionInviteLink`): to'lov,
+oylik yangilanish va muddat tugaganda chiqarishни **Telegram o'zi** boshqaradi.
+
+1. Yopiq kanal oching, **botni admin qiling** («invite users» huquqi bilan).
+2. `/admin → 💎 Obuna rejalari → /addplan` → nom, narx (⭐/oy), kanal ID (`-100…`).
+3. Bot obuna invite linkini yaratadi; foydalanuvchilar `/subscribe` orqali ko'radi.
+
+## Landing page
+
+`site/landing.html` — SentryScan uchun bir sahifali sayt (banner, xizmatlar,
+mahsulotlar, `@SentryScanbot` ga CTA). GitHub Pages yoki istalgan hostda qo'ying;
+shareable versiya Claude Artifact sifatida ham chop etilgan.
+
+## Sinash
+
+`docs/test-guide.md` — botni bosqichma-bosqich sinash checklisti.
+
 ## Mijoz jalb qilish
 
 `docs/` papkada tayyor matnlar:
