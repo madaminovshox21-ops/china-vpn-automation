@@ -68,12 +68,18 @@ def register(router_parent: Router, cfg, db) -> None:
         try:
             if kind == "file":
                 await msg.answer_document(data, caption=p["title"])
+            elif kind == "path":
+                # Lokal fayl (repo ichidagi mahsulot)
+                from aiogram.types import FSInputFile
+                await msg.answer_document(FSInputFile(data), caption=p["title"])
             elif kind == "link":
                 await msg.answer(f"🔗 {p['title']}\n{data}")
             else:  # text
                 await msg.answer(data or "(bo'sh)")
-        except Exception:
-            # file_id boshqa botniki bo'lsa yoki xato — fallback
-            await msg.answer(f"{p['title']}\n\n{data}")
+        except Exception as e:
+            await msg.answer(
+                f"{p['title']}\n\n⚠️ Yetkazishda muammo: {e}\n"
+                "Admin bilan bog'laning — pulingiz qaytariladi yoki fayl qo'lda yuboriladi."
+            )
 
     router_parent.include_router(router)

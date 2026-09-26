@@ -1,0 +1,27 @@
+id: missing-security-headers
+
+info:
+  name: Xavfsizlik header'lari yo'q
+  author: secbot
+  severity: info
+  description: HSTS/CSP/X-Frame-Options kabi muhim header'lar yo'qligini aniqlaydi.
+  tags: misconfig,headers
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: or
+    matchers:
+      - type: dsl
+        dsl:
+          - "!contains(tolower(all_headers), 'strict-transport-security')"
+        name: hsts-missing
+      - type: dsl
+        dsl:
+          - "!contains(tolower(all_headers), 'content-security-policy')"
+        name: csp-missing
+      - type: dsl
+        dsl:
+          - "!contains(tolower(all_headers), 'x-frame-options')"
+        name: xfo-missing

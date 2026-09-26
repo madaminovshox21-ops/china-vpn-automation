@@ -11,6 +11,7 @@ from aiogram.enums import ParseMode
 from .config import Config
 from .db import Database
 from .handlers import admin, common, security, store
+from .seed import seed_products
 
 
 async def main() -> None:
@@ -19,6 +20,9 @@ async def main() -> None:
 
     db = Database(cfg.db_path)
     await db.connect()
+    added = await seed_products(db)
+    if added:
+        logging.info("Do'kon seed: %d ta mahsulot qo'shildi", added)
 
     bot = Bot(cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()

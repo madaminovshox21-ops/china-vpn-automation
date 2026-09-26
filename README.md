@@ -73,6 +73,29 @@ bot/
     common.py store.py security.py admin.py
 ```
 
+## Do'kon mahsulotlari (avtomatik seed)
+
+Bot ishga tushganda `products/catalog.json` o'qiladi va mahsulotlar bazaga
+avtomatik qo'shiladi (idempotent — takror qo'shilmaydi). Tayyor mahsulotlar:
+
+| Mahsulot | Narx | Fayl |
+|---|---|---|
+| Web Pentest Cheat Sheet | ⭐150 | `web-pentest-cheatsheet.pdf` |
+| CTF Writeups Pack | ⭐120 | `ctf-writeups.pdf` |
+| Recon Scripts Pack | ⭐200 | `recon-scripts.zip` |
+| Nuclei Templates Pack | ⭐180 | `nuclei-templates.zip` |
+
+Yangi mahsulot qo'shish: faylni `products/` ga qo'ying, `catalog.json` ga yozuv
+qo'shing (`kind: "path"`, `file: "..."`). Markdown'dan PDF: `python tools/build_cheatsheet_pdf.py products/yangi.md`.
+
+Yetkazish turlari: `path` (lokal fayl), `file` (Telegram file_id), `link`, `text`.
+
+## Mijoz jalb qilish
+
+`docs/` papkada tayyor matnlar:
+- `docs/upwork-profile.md` — Upwork profil (title, overview, skills, narx)
+- `docs/client-outreach.md` — taklif xatlari, bepul→pullik voronka, bot lead-magnet
+
 ## Deploy (server)
 
 Oddiy VPS'da systemd bilan doimiy ishlatish:
