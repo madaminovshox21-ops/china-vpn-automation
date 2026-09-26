@@ -6,12 +6,17 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
+from aiogram.types import FSInputFile
+
 from ..access import can_active_scan
-from ..keyboards import scan_menu_kb, verify_method_kb
-from ..services import scanner, verify
+from ..keyboards import report_kb, scan_menu_kb, verify_method_kb
+from ..services import report, scanner, verify
 from ..states import ScanFlow, VerifyFlow
 
 router = Router()
+
+# Foydalanuvchining oxirgi skan natijasi (PDF uchun), xotirada
+_last_scan: dict[int, dict] = {}
 
 
 def _fmt_passive(r: dict) -> str:
@@ -109,7 +114,9 @@ def register(router_parent: Router, cfg, db) -> None:
             await wait.edit_text(f"❌ Xatolik: {e}")
             return
         await db.log_scan(msg.from_user.id, domain, "passive", "ok")
+        _last_scan[msg.from_user.id] = {"passive": r, "active": None}
         await wait.edit_text(_fmt_passive(r))
+        await msg.answer("To'liq hujjatni yuklab olasizmi?", reply_markup=report_kb())
 
     # ---- Faol (gated) ----
     @router.callback_query(F.data == "scan:active")
@@ -135,6 +142,10 @@ def register(router_parent: Router, cfg, db) -> None:
         wait = await msg.answer(f"🎯 <code>{domain}</code> faol tekshirilyapti ({reason})...")
         res = await scanner.scan_ports(domain, cfg.scan_timeout, authorized=True)
         await db.log_scan(msg.from_user.id, domain, "active", f"open={res.get('open')}")
+        prev = _last_scan.get(msg.from_user.id, {})
+        if prev.get("passive", {}).get("domain") == domain:
+            prev["active"] = res
+            _last_scan[msg.from_user.id] = prev
         if res.get("error"):
             await wait.edit_text(f"❌ {res['error']}")
             return
@@ -146,6 +157,28 @@ def register(router_parent: Router, cfg, db) -> None:
         if openp:
             txt += "\n<i>Har bir ochiq port — potensial kirish nuqtasi. Keraksizlarini yoping.</i>"
         await wait.edit_text(txt)
+
+    # ---- PDF hisobot ----
+    @router.callback_query(F.data == "report:pdf")
+    async def send_report(cb: CallbackQuery):
+        data = _last_scan.get(cb.from_user.id)
+        if not data or not data.get("passive"):
+            await cb.answer("Avval tekshiruv o'tkazing.", show_alert=True)
+            return
+        await cb.answer("Hujjat tayyorlanyapti...")
+        import os as _os
+        out_dir = _os.path.join(_os.path.dirname(cfg.db_path) or ".", "reports")
+        try:
+            path = await __import__("asyncio").to_thread(
+                report.generate_pdf, data["passive"], out_dir, data.get("active")
+            )
+            await cb.message.answer_document(FSInputFile(path), caption="📄 Xavfsizlik hisoboti")
+            try:
+                _os.remove(path)
+            except OSError:
+                pass
+        except Exception as e:
+            await cb.message.answer(f"❌ PDF yaratishda xatolik: {e}")
 
     # ---- Tasdiqlash ----
     @router.message(Command("verify"))

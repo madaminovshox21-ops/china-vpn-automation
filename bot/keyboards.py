@@ -42,6 +42,12 @@ def verify_method_kb(domain: str) -> InlineKeyboardMarkup:
     ])
 
 
+def report_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📄 PDF hisobotni olish", callback_data="report:pdf")],
+    ])
+
+
 def admin_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Mahsulot qo'shish", callback_data="adm:addprod")],
