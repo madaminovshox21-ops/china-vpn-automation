@@ -16,7 +16,7 @@ import secrets
 import aiohttp
 import dns.resolver
 
-TXT_PREFIX = "secbot-verify="
+TXT_PREFIX = "sentryscan-verify="
 
 
 def make_token(tg_id: int, domain: str) -> str:
@@ -33,7 +33,7 @@ async def verify_dns_txt(domain: str, token: str, timeout: int) -> bool:
         resolver = dns.resolver.Resolver()
         resolver.lifetime = timeout
         resolver.timeout = timeout
-        for name in (domain, f"_secbot.{domain}"):
+        for name in (domain, f"_sentryscan.{domain}"):
             try:
                 for r in resolver.resolve(name, "TXT"):
                     if expected in r.to_text().strip('"'):
@@ -68,7 +68,7 @@ def dns_instructions(domain: str, token: str) -> str:
     return (
         f"🔐 <b>DNS-TXT orqali tasdiqlash</b>\n\n"
         f"Domeningiz DNS paneliga quyidagi TXT yozuvini qo'shing:\n\n"
-        f"<b>Nom (host):</b> <code>_secbot.{domain}</code>  (yoki <code>@</code>)\n"
+        f"<b>Nom (host):</b> <code>_sentryscan.{domain}</code>  (yoki <code>@</code>)\n"
         f"<b>Qiymat:</b> <code>{TXT_PREFIX}{token}</code>\n\n"
         f"Qo'shgach, /verify buyrug'i bilan tekshiring (DNS tarqalishi biroz vaqt olishi mumkin)."
     )

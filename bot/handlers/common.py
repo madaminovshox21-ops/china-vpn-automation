@@ -12,7 +12,7 @@ from ..keyboards import main_menu
 router = Router()
 
 WELCOME = (
-    "👋 <b>Salom!</b>\n\n"
+    "👋 <b>SentryScan'ga xush kelibsiz!</b>\n\n"
     "Bu bot ikki ish qiladi:\n"
     "🛒 <b>Do'kon</b> — raqamli mahsulotlar (cheat sheet, lab, skript) Telegram Stars evaziga.\n"
     "🛡 <b>Xavfsizlik tekshiruvi</b> — sayt/domeningizni tekshirib, hisobot beradi.\n\n"

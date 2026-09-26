@@ -1,4 +1,4 @@
-# SecBot — Xavfsizlik tekshiruvi + Raqamli do'kon (Telegram)
+# SentryScan — Xavfsizlik tekshiruvi + Raqamli do'kon (Telegram)
 
 Ikki funksiyali Telegram bot:
 
@@ -101,18 +101,18 @@ Yetkazish turlari: `path` (lokal fayl), `file` (Telegram file_id), `link`, `text
 Oddiy VPS'da systemd bilan doimiy ishlatish:
 
 ```ini
-# /etc/systemd/system/secbot.service
+# /etc/systemd/system/sentryscan.service
 [Unit]
-Description=SecBot
+Description=SentryScan
 After=network.target
 [Service]
-WorkingDirectory=/opt/secbot
-ExecStart=/opt/secbot/.venv/bin/python -m bot.main
+WorkingDirectory=/opt/sentryscan
+ExecStart=/opt/sentryscan/.venv/bin/python -m bot.main
 Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
 
 ```bash
-sudo systemctl enable --now secbot
+sudo systemctl enable --now sentryscan
 ```

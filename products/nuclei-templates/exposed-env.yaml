@@ -2,7 +2,7 @@ id: exposed-env-file
 
 info:
   name: Ochiq .env fayli
-  author: secbot
+  author: sentryscan
   severity: high
   description: Server web-root'ida .env fayli ochiq bo'lsa, maxfiy kalitlar sizadi.
   tags: exposure,config,misconfig

@@ -2,7 +2,7 @@ id: exposed-git-config
 
 info:
   name: Ochiq .git/config
-  author: secbot
+  author: sentryscan
   severity: medium
   description: .git papkasi ochiq bo'lsa, manba kod va tarix yuklab olinishi mumkin.
   tags: exposure,git,misconfig

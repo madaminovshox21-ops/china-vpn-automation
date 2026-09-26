@@ -1,6 +1,6 @@
 # CTF Writeups Pack — Web Challenges
 
-**SecBot** · Ta'limiy writeup to'plami. Har bir yechim: challenge → tahlil → exploit → flag → saboq.
+**SentryScan** · Ta'limiy writeup to'plami. Har bir yechim: challenge → tahlil → exploit → flag → saboq.
 
 ---
 
@@ -91,4 +91,4 @@ qo'shimcha qatlam, asosiy himoya emas.
 
 ---
 
-*© SecBot. Ta'lim maqsadida. Texnikalarni faqat ruxsat berilgan muhitda qo'llang.*
+*© SentryScan. Ta'lim maqsadida. Texnikalarni faqat ruxsat berilgan muhitda qo'llang.*

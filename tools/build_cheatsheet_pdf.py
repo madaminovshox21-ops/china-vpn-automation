@@ -42,7 +42,7 @@ class Doc(FPDF):
         self.set_y(-12)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(*GREY)
-        self.cell(0, 8, f"SecBot  |  {self.page_no()}", align="C")
+        self.cell(0, 8, f"SentryScan  |  {self.page_no()}", align="C")
         self.set_text_color(0, 0, 0)
 
 
