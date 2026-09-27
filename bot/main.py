@@ -35,6 +35,12 @@ async def main() -> None:
     security.register(dp, cfg, db)
     admin.register(dp, cfg, db)
 
+    @dp.errors()
+    async def on_error(event) -> bool:
+        # Har qanday handler xatosi — bot to'xtamaydi, log qilinadi
+        logging.exception("Handler xatosi: %s", getattr(event, "exception", event))
+        return True
+
     await setup_profile(bot)
 
     logging.info("Bot ishga tushdi. Adminlar: %s", cfg.admin_ids)

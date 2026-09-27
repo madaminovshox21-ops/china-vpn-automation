@@ -1,6 +1,8 @@
 """Xavfsizlik tekshiruvi handlerlari: passiv (bepul), faol (gated), tasdiqlash."""
 from __future__ import annotations
 
+import html
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -147,23 +149,26 @@ def register(router_parent: Router, cfg, db) -> None:
             await msg.answer(reason)
             return
         wait = await msg.answer(f"🎯 <code>{domain}</code> faol tekshirilyapti ({reason})...")
-        res = await scanner.scan_ports(domain, cfg.scan_timeout, authorized=True)
-        await db.log_scan(msg.from_user.id, domain, "active", f"open={res.get('open')}")
-        prev = _last_scan.get(msg.from_user.id, {})
-        if prev.get("passive", {}).get("domain") == domain:
-            prev["active"] = res
-            _last_scan[msg.from_user.id] = prev
-        if res.get("error"):
-            await wait.edit_text(f"❌ {res['error']}")
-            return
-        openp = res.get("open", [])
-        txt = (
-            f"🎯 <b>Faol hisobot — {domain}</b> ({res.get('ip')})\n\n"
-            f"Ochiq portlar: {', '.join(map(str, openp)) if openp else 'topilmadi'}\n"
-        )
-        if openp:
-            txt += "\n<i>Har bir ochiq port — potensial kirish nuqtasi. Keraksizlarini yoping.</i>"
-        await wait.edit_text(txt)
+        try:
+            res = await scanner.scan_ports(domain, cfg.scan_timeout, authorized=True)
+            await db.log_scan(msg.from_user.id, domain, "active", f"open={res.get('open')}")
+            prev = _last_scan.get(msg.from_user.id, {})
+            if prev.get("passive", {}).get("domain") == domain:
+                prev["active"] = res
+                _last_scan[msg.from_user.id] = prev
+            if res.get("error"):
+                await wait.edit_text(f"❌ {html.escape(str(res['error']))}")
+                return
+            openp = res.get("open", [])
+            txt = (
+                f"🎯 <b>Faol hisobot — {domain}</b> ({res.get('ip')})\n\n"
+                f"Ochiq portlar: {', '.join(map(str, openp)) if openp else 'topilmadi'}\n"
+            )
+            if openp:
+                txt += "\n<i>Har bir ochiq port — potensial kirish nuqtasi. Keraksizlarini yoping.</i>"
+            await wait.edit_text(txt)
+        except Exception as e:
+            await wait.edit_text(f"❌ Skan xatosi: {html.escape(type(e).__name__)}: {html.escape(str(e))[:300]}")
 
     # ---- PDF hisobot ----
     @router.callback_query(F.data == "report:pdf")
