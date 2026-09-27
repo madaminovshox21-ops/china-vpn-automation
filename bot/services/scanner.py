@@ -22,6 +22,23 @@ import dns.resolver
 # Faol skan uchun keng tarqalgan portlar (cheklangan ro'yxat)
 COMMON_PORTS = [21, 22, 25, 80, 110, 143, 443, 3306, 3389, 5432, 6379, 8080, 8443]
 
+# port -> (xizmat, xavf izohi yoki None). Ochiq bo'lishi xavfli portlar belgilanadi.
+PORT_INFO: dict[int, tuple[str, str | None]] = {
+    21: ("FTP", "⚠️ Ochiq FTP — ko'pincha shifrlanmagan, parol sizishi mumkin."),
+    22: ("SSH", "Masofaviy kirish — kuchli parol/kalit va fail2ban shart."),
+    25: ("SMTP", "Pochta serveri — ochiq relay bo'lmasin."),
+    110: ("POP3", "⚠️ Eski, shifrlanmagan pochta protokoli."),
+    143: ("IMAP", "Pochta — TLS bilan bo'lishi kerak."),
+    80: ("HTTP", "Shifrlanmagan — HTTPS (443) ga yo'naltiring."),
+    443: ("HTTPS", None),
+    3306: ("MySQL", "🔴 Ma'lumotlar bazasi internetga ochiq — juda xavfli! Faqat localhost."),
+    3389: ("RDP", "🔴 Windows masofaviy ish stoli ochiq — bruteforce/ransomware nishoni."),
+    5432: ("PostgreSQL", "🔴 Ma'lumotlar bazasi ochiq — internetdan yopish shart."),
+    6379: ("Redis", "🔴 Redis ko'pincha parolsiz — ochiq bo'lsa to'liq egallanadi."),
+    8080: ("HTTP-alt", "Ko'pincha admin/proxy paneli — tekshiring."),
+    8443: ("HTTPS-alt", "Muqobil HTTPS/admin panel."),
+}
+
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})+$")
 
 

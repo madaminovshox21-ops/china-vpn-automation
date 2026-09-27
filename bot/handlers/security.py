@@ -160,13 +160,26 @@ def register(router_parent: Router, cfg, db) -> None:
                 await wait.edit_text(f"❌ {html.escape(str(res['error']))}")
                 return
             openp = res.get("open", [])
-            txt = (
-                f"🎯 <b>Faol hisobot — {domain}</b> ({res.get('ip')})\n\n"
-                f"Ochiq portlar: {', '.join(map(str, openp)) if openp else 'topilmadi'}\n"
-            )
-            if openp:
-                txt += "\n<i>Har bir ochiq port — potensial kirish nuqtasi. Keraksizlarini yoping.</i>"
-            await wait.edit_text(txt)
+            lines = [f"🎯 <b>Faol hisobot — {domain}</b>",
+                     f"IP: <code>{res.get('ip')}</code>\n"]
+            if not openp:
+                lines.append("Ochiq port topilmadi (tekshirilgan keng tarqalgan portlarda).")
+            else:
+                lines.append(f"<b>Ochiq portlar ({len(openp)}):</b>")
+                risky = 0
+                for p in openp:
+                    svc, note = scanner.PORT_INFO.get(p, ("?", None))
+                    line = f"  🔓 <b>{p}</b> — {svc}"
+                    if note:
+                        line += f"\n       {note}"
+                        if note.startswith("🔴"):
+                            risky += 1
+                    lines.append(line)
+                lines.append("")
+                if risky:
+                    lines.append(f"🔴 <b>{risky} ta yuqori xavfli</b> port ochiq — darhol yoping yoki cheklang.")
+                lines.append("<i>Har bir keraksiz portni yoping; kerakini firewall bilan cheklang.</i>")
+            await wait.edit_text("\n".join(lines))
         except Exception as e:
             await wait.edit_text(f"❌ Skan xatosi: {html.escape(type(e).__name__)}: {html.escape(str(e))[:300]}")
 
