@@ -27,6 +27,7 @@ class Config:
     db_path: str
     scan_timeout: int
     enable_active_scan: bool
+    hibp_api_key: str
 
     @classmethod
     def load(cls) -> "Config":
@@ -39,4 +40,5 @@ class Config:
             db_path=os.getenv("DB_PATH", "data/bot.db"),
             scan_timeout=int(os.getenv("SCAN_TIMEOUT", "8")),
             enable_active_scan=os.getenv("ENABLE_ACTIVE_SCAN", "true").lower() == "true",
+            hibp_api_key=os.getenv("HIBP_API_KEY", "").strip(),
         )

@@ -30,6 +30,9 @@ class ScanFlow(StatesGroup):
     passive_domain = State()
     active_domain = State()
     deep_domain = State()
+    recon_domain = State()
+    nuclei_domain = State()
+    breach_email = State()
 
 
 class VerifyFlow(StatesGroup):
