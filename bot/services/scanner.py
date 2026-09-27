@@ -114,18 +114,23 @@ _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 
 
 async def check_http_headers(domain: str, timeout: int) -> dict[str, Any]:
-    """HTTPS'ni sinaydi, bo'lmasa HTTP'ga o'tadi (HTTP-only saytlar uchun)."""
+    """HTTPS'ni sinaydi, bo'lmasa HTTP'ga o'tadi (HTTP-only saytlar uchun).
+    IPv4 ga majburlanadi (IPv6 osilishlarining oldini oladi) va trust_env
+    orqali tizim proxy sozlamalarini hisobga oladi."""
     out: dict[str, Any] = {
         "ok": False, "present": [], "missing": [], "server": None,
         "security_txt": False, "scheme": None, "https": False,
     }
-    to = aiohttp.ClientTimeout(total=timeout)
+    to = aiohttp.ClientTimeout(total=timeout, connect=min(timeout, 6))
     headers = {"User-Agent": _UA, "Accept": "*/*"}
     last_err = None
     for scheme in ("https", "http"):
         url = f"{scheme}://{domain}"
         try:
-            async with aiohttp.ClientSession(timeout=to, headers=headers) as session:
+            connector = aiohttp.TCPConnector(family=socket.AF_INET, ssl=False, limit=4)
+            async with aiohttp.ClientSession(
+                timeout=to, headers=headers, connector=connector, trust_env=True
+            ) as session:
                 async with session.get(url, allow_redirects=True, ssl=False) as resp:
                     out["ok"] = True
                     out["scheme"] = scheme
@@ -147,7 +152,7 @@ async def check_http_headers(domain: str, timeout: int) -> dict[str, Any]:
                         continue
             return out
         except Exception as e:
-            last_err = str(e)
+            last_err = f"{type(e).__name__}: {e}".strip()
             continue
     out["error"] = last_err or "ulanib bo'lmadi"
     return out
