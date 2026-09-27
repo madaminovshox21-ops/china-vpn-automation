@@ -82,6 +82,8 @@ def build_findings(r: dict[str, Any]) -> list[tuple[str, str]]:
             out.append(("HIGH", "SSL sertifikat muddati tugagan!"))
         elif dl is not None and dl < 21:
             out.append(("MED", f"SSL sertifikat muddati tez tugaydi ({dl} kun)."))
+    elif h.get("ok") and not h.get("https"):
+        out.append(("HIGH", "Sayt faqat HTTP orqali ishlaydi - trafik shifrlanmagan. HTTPS o'rnating."))
     else:
         out.append(("MED", "HTTPS/SSL ulanib bo'lmadi yoki sozlanmagan."))
 

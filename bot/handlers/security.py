@@ -38,24 +38,31 @@ def _fmt_passive(r: dict) -> str:
         lines.append(f"  Protokol: {s.get('protocol')}")
         lines.append(f"  Beruvchi: {s.get('issuer')}")
         lines.append(f"  Muddati: {dl} kun qoldi{warn}")
+    elif h.get("ok") and not h.get("https"):
+        lines.append("  ❌ HTTPS yo‘q (sayt faqat HTTP orqali ishlaydi) — jiddiy kamchilik")
     else:
-        lines.append(f"  ❌ {s.get('error', 'ulanib bo‘lmadi')}")
+        lines.append("  ❌ HTTPS (443) ochiq emas yoki javob bermadi")
 
-    # HTTP headers
-    lines.append("\n<b>Xavfsizlik header'lari</b>")
+    # HTTP(S) headers
+    scheme = (h.get("scheme") or "?").upper()
+    lines.append(f"\n<b>Xavfsizlik header'lari</b> ({scheme})")
     if h.get("ok"):
+        if not h.get("https"):
+            lines.append("  ⚠️ Sayt faqat HTTP — trafik shifrlanmagan")
         if h["present"]:
             lines.append(f"  ✅ Bor: {', '.join(h['present'])}")
         if h["missing"]:
             lines.append(f"  ❌ Yo‘q: {', '.join(h['missing'])}")
         if h.get("server"):
             lines.append(f"  Server: {h['server']}")
-        lines.append(f"  security.txt: {'✅' if h.get('security_txt') else '❌ yo‘q'}")
+        lines.append(f"  Status: {h.get('status')}   security.txt: {'✅' if h.get('security_txt') else '❌ yo‘q'}")
     else:
-        lines.append(f"  ❌ {h.get('error', 'javob yo‘q')}")
+        lines.append(f"  ❌ Javob yo‘q: {h.get('error', '—')}")
 
     # Tavsiyalar
     recs = []
+    if h.get("ok") and not h.get("https"):
+        recs.append("HTTPS (SSL sertifikat) o'rnating — HTTP shifrlanmagan, xavfli.")
     if h.get("ok") and h.get("missing"):
         recs.append("Yetishmayotgan xavfsizlik header'larini qo'shing.")
     if not d["has_spf"] or not d["has_dmarc"]:

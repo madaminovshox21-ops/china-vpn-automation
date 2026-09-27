@@ -109,30 +109,47 @@ SECURITY_HEADERS = {
 }
 
 
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 SentryScan/1.0")
+
+
 async def check_http_headers(domain: str, timeout: int) -> dict[str, Any]:
-    url = f"https://{domain}"
-    out: dict[str, Any] = {"ok": False, "present": [], "missing": [], "server": None, "security_txt": False}
-    try:
-        to = aiohttp.ClientTimeout(total=timeout)
-        async with aiohttp.ClientSession(timeout=to) as session:
-            async with session.get(url, allow_redirects=True) as resp:
-                out["ok"] = True
-                out["status"] = resp.status
-                out["server"] = resp.headers.get("Server")
-                lower = {k.lower(): v for k, v in resp.headers.items()}
-                for h, label in SECURITY_HEADERS.items():
-                    (out["present"] if h in lower else out["missing"]).append(label)
-            # security.txt
-            for path in ("/.well-known/security.txt", "/security.txt"):
-                try:
-                    async with session.get(url + path, allow_redirects=True) as r2:
-                        if r2.status == 200 and "contact" in (await r2.text()).lower():
-                            out["security_txt"] = True
-                            break
-                except Exception:
-                    continue
-    except Exception as e:
-        out["error"] = str(e)
+    """HTTPS'ni sinaydi, bo'lmasa HTTP'ga o'tadi (HTTP-only saytlar uchun)."""
+    out: dict[str, Any] = {
+        "ok": False, "present": [], "missing": [], "server": None,
+        "security_txt": False, "scheme": None, "https": False,
+    }
+    to = aiohttp.ClientTimeout(total=timeout)
+    headers = {"User-Agent": _UA, "Accept": "*/*"}
+    last_err = None
+    for scheme in ("https", "http"):
+        url = f"{scheme}://{domain}"
+        try:
+            async with aiohttp.ClientSession(timeout=to, headers=headers) as session:
+                async with session.get(url, allow_redirects=True, ssl=False) as resp:
+                    out["ok"] = True
+                    out["scheme"] = scheme
+                    out["https"] = scheme == "https"
+                    out["status"] = resp.status
+                    out["server"] = resp.headers.get("Server")
+                    out["present"], out["missing"] = [], []
+                    lower = {k.lower(): v for k, v in resp.headers.items()}
+                    for h, label in SECURITY_HEADERS.items():
+                        (out["present"] if h in lower else out["missing"]).append(label)
+                # security.txt (ishlagan sxema bo'yicha)
+                for path in ("/.well-known/security.txt", "/security.txt"):
+                    try:
+                        async with session.get(url + path, allow_redirects=True, ssl=False) as r2:
+                            if r2.status == 200 and "contact" in (await r2.text()).lower():
+                                out["security_txt"] = True
+                                break
+                    except Exception:
+                        continue
+            return out
+        except Exception as e:
+            last_err = str(e)
+            continue
+    out["error"] = last_err or "ulanib bo'lmadi"
     return out
 
 
