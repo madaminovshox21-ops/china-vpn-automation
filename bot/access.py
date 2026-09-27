@@ -19,12 +19,16 @@ async def is_staff(cfg: Config, db: Database, tg_id: int) -> bool:
 
 
 async def can_active_scan(cfg: Config, db: Database, tg_id: int, domain: str) -> tuple[bool, str]:
-    """Faol skanga ruxsat bormi? Uch yo'l:
+    """Faol skanga ruxsat bormi?
+      0) ADMIN — istalgan domenga (o'z mas'uliyati ostida; harakat logga yoziladi)
       1) foydalanuvchi domenni DNS/fayl bilan tasdiqlagan
       2) admin domen uchun engagement (ruxsatnoma) yaratgan
       3) so'rovchi xodim (operator/admin) VA engagement mavjud
     Aks holda — rad.
     """
+    # Admin — to'liq huquq (eganing o'zi javobgar; skan_logs ga yoziladi)
+    if await is_admin(cfg, db, tg_id):
+        return True, "Admin (to'liq huquq)"
     if await db.is_domain_verified_for(tg_id, domain):
         return True, "Domen egaligi tasdiqlangan"
     if await db.is_domain_in_engagement(domain):
