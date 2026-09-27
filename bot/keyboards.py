@@ -31,7 +31,8 @@ def products_kb(products) -> InlineKeyboardMarkup:
 def scan_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔎 Passiv tekshiruv (bepul)", callback_data="scan:passive")],
-        [InlineKeyboardButton(text="🎯 Faol tekshiruv (tasdiq kerak)", callback_data="scan:active")],
+        [InlineKeyboardButton(text="🔬 Chuqur skan (auto-pentester)", callback_data="scan:deep")],
+        [InlineKeyboardButton(text="🎯 Port skani", callback_data="scan:active")],
         [InlineKeyboardButton(text="➕ Domen tasdiqlash", callback_data="verify:add")],
     ])
 

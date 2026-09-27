@@ -12,8 +12,10 @@ from aiogram.types import FSInputFile
 
 from ..access import can_active_scan
 from ..keyboards import report_kb, scan_menu_kb, verify_method_kb
-from ..services import report, scanner, verify
+from ..services import report, scanner, verify, vulnscan
 from ..states import ScanFlow, VerifyFlow
+
+SEV_EMOJI = {"CRITICAL": "🟥", "HIGH": "🟧", "MEDIUM": "🟨", "LOW": "🟦", "INFO": "⬜"}
 
 router = Router()
 
@@ -79,14 +81,44 @@ def _fmt_passive(r: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_deep(r: dict) -> str:
+    c = r["counts"]
+    score = r["score"]
+    bar = "🟢" if score >= 80 else ("🟡" if score >= 50 else "🔴")
+    lines = [
+        f"🔬 <b>Chuqur skan — {r['domain']}</b>",
+        f"{bar} Xavfsizlik bali: <b>{score}/100</b>",
+        f"🟥 {c.get('CRITICAL',0)}  🟧 {c.get('HIGH',0)}  🟨 {c.get('MEDIUM',0)}  🟦 {c.get('LOW',0)}",
+        "",
+    ]
+    findings = r["findings"]
+    if not findings:
+        lines.append("✅ Jiddiy muammo topilmadi.")
+    else:
+        shown = [f for f in findings if f["sev"] != "INFO"][:15]
+        for f in shown:
+            em = SEV_EMOJI.get(f["sev"], "•")
+            lines.append(f"{em} <b>{f['title']}</b>")
+            if f.get("detail"):
+                lines.append(f"    {f['detail']}")
+            if f.get("fix"):
+                lines.append(f"    💡 {f['fix']}")
+        extra = len(findings) - len(shown)
+        if extra > 0:
+            lines.append(f"\n<i>...va yana {extra} ta. To'liq ro'yxat PDF hisobotda.</i>")
+    return "\n".join(lines)
+
+
 def register(router_parent: Router, cfg, db) -> None:
     @router.message(F.text == "🛡 Xavfsizlik tekshiruvi")
     async def scan_menu(msg: Message):
         await msg.answer(
             "🛡 <b>Xavfsizlik tekshiruvi</b>\n\n"
-            "• <b>Passiv</b> — bepul, ochiq ma'lumot (SSL, header, DNS).\n"
-            "• <b>Faol</b> — port skani, faqat tasdiqlangan domeningizga.\n"
-            "• <b>Domen tasdiqlash</b> — DNS-TXT yoki fayl orqali.",
+            "• <b>🔎 Passiv</b> — tez ko'rinish (SSL, header, DNS).\n"
+            "• <b>🔬 Chuqur skan</b> — avtomatik pentester: ochiq fayllar, CORS, TLS, "
+            "cookie, HTTP metodlar + xavfsizlik bali va PDF hisobot.\n"
+            "• <b>🎯 Port skani</b> — ochiq portlar va xizmatlar.\n"
+            "• <b>➕ Domen tasdiqlash</b> — o'z domeningizni tasdiqlash.",
             reply_markup=scan_menu_kb(),
         )
 
@@ -183,20 +215,60 @@ def register(router_parent: Router, cfg, db) -> None:
         except Exception as e:
             await wait.edit_text(f"❌ Skan xatosi: {html.escape(type(e).__name__)}: {html.escape(str(e))[:300]}")
 
+    # ---- Chuqur skan (auto-pentester) ----
+    @router.callback_query(F.data == "scan:deep")
+    async def ask_deep(cb: CallbackQuery, state: FSMContext):
+        await state.set_state(ScanFlow.deep_domain)
+        await cb.message.answer(
+            "🔬 <b>Chuqur skan</b> — domeningizni yuboring.\n"
+            "Zararsiz (faqat o'qish) lekin ko'plab tekshiruv: ochiq fayllar, header, "
+            "CORS, TLS, HTTP metodlar, DNS...")
+        await cb.answer()
+
+    @router.message(ScanFlow.deep_domain)
+    async def do_deep(msg: Message, state: FSMContext):
+        await state.clear()
+        domain = scanner.normalize_domain(msg.text or "")
+        if not domain:
+            await msg.answer("❌ Domen noto'g'ri.")
+            return
+        allowed, reason = await can_active_scan(cfg, db, msg.from_user.id, domain)
+        if not allowed:
+            await msg.answer(reason)
+            return
+        wait = await msg.answer(f"🔬 <code>{domain}</code> chuqur tekshirilyapti... (30 soniyagacha)")
+        try:
+            r = await vulnscan.deep_scan(domain, cfg.scan_timeout)
+        except Exception as e:
+            await wait.edit_text(f"❌ Skan xatosi: {html.escape(type(e).__name__)}: {html.escape(str(e))[:300]}")
+            return
+        if not r.get("ok"):
+            err = r.get("error") or "ulanib bo'lmadi"
+            await wait.edit_text("❌ " + html.escape(str(err)))
+            return
+        await db.log_scan(msg.from_user.id, domain, "deep",
+                          f"score={r['score']} n={len(r['findings'])}")
+        _last_scan[msg.from_user.id] = {"deep": r}
+        await wait.edit_text(_fmt_deep(r))
+        await msg.answer("To'liq PDF hisobotni olasizmi?", reply_markup=report_kb())
+
     # ---- PDF hisobot ----
     @router.callback_query(F.data == "report:pdf")
     async def send_report(cb: CallbackQuery):
         data = _last_scan.get(cb.from_user.id)
-        if not data or not data.get("passive"):
+        if not data or (not data.get("passive") and not data.get("deep")):
             await cb.answer("Avval tekshiruv o'tkazing.", show_alert=True)
             return
         await cb.answer("Hujjat tayyorlanyapti...")
+        import asyncio as _asyncio
         import os as _os
         out_dir = _os.path.join(_os.path.dirname(cfg.db_path) or ".", "reports")
         try:
-            path = await __import__("asyncio").to_thread(
-                report.generate_pdf, data["passive"], out_dir, data.get("active")
-            )
+            if data.get("deep"):
+                path = await _asyncio.to_thread(report.generate_deep_pdf, data["deep"], out_dir)
+            else:
+                path = await _asyncio.to_thread(
+                    report.generate_pdf, data["passive"], out_dir, data.get("active"))
             await cb.message.answer_document(FSInputFile(path), caption="📄 Xavfsizlik hisoboti")
             try:
                 _os.remove(path)

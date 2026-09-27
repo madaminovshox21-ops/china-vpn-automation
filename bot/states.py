@@ -29,6 +29,7 @@ class AddPlan(StatesGroup):
 class ScanFlow(StatesGroup):
     passive_domain = State()
     active_domain = State()
+    deep_domain = State()
 
 
 class VerifyFlow(StatesGroup):

@@ -104,6 +104,80 @@ def build_findings(r: dict[str, Any]) -> list[tuple[str, str]]:
     return out
 
 
+SEV_COLOR = {"CRITICAL": (150, 20, 20), "HIGH": (190, 60, 20),
+             "MEDIUM": (180, 130, 0), "LOW": (30, 100, 160), "INFO": (110, 110, 110)}
+
+
+def generate_deep_pdf(r: dict[str, Any], out_dir: str) -> str:
+    """Chuqur skan (auto-pentester) natijasidan PDF hisobot."""
+    pdf = _PDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.cell(0, 10, _latin(r["domain"]), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*GREY)
+    pdf.cell(0, 6, _latin("Chuqur skan (auto-pentester) — " +
+             time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(2)
+
+    c = r["counts"]
+    score = r["score"]
+    _h2(pdf, "Xulosa")
+    sc_color = OKC if score >= 80 else (WARN if score >= 50 else BAD)
+    _kv(pdf, "Xavfsizlik bali:", f"{score}/100", sc_color)
+    _kv(pdf, "Kritik:", str(c.get("CRITICAL", 0)), BAD if c.get("CRITICAL") else None)
+    _kv(pdf, "Yuqori:", str(c.get("HIGH", 0)), BAD if c.get("HIGH") else None)
+    _kv(pdf, "O'rta:", str(c.get("MEDIUM", 0)), WARN if c.get("MEDIUM") else None)
+    _kv(pdf, "Past:", str(c.get("LOW", 0)))
+    if r.get("server"):
+        _kv(pdf, "Server:", str(r["server"]))
+
+    _h2(pdf, "Topilmalar")
+    findings = r["findings"]
+    if not findings:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.multi_cell(0, 6, _latin("Jiddiy muammo topilmadi."), new_x="LMARGIN", new_y="NEXT")
+    for i, f in enumerate(findings, 1):
+        col = SEV_COLOR.get(f["sev"], (0, 0, 0))
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*col)
+        pdf.cell(24, 6, f"[{f['sev'][:4]}]", new_x="RIGHT", new_y="TOP")
+        pdf.set_text_color(0, 0, 0)
+        avail = pdf.w - pdf.r_margin - pdf.l_margin - 24
+        pdf.multi_cell(avail, 6, _latin(f"{i}. {f['title']}"), new_x="LMARGIN", new_y="NEXT")
+        if f.get("detail"):
+            pdf.set_x(pdf.l_margin + 24)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(*GREY)
+            pdf.multi_cell(avail, 5, _latin(f["detail"]), new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(0, 0, 0)
+        if f.get("fix"):
+            pdf.set_x(pdf.l_margin + 24)
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_text_color(*ACCENT)
+            pdf.multi_cell(avail, 5, _latin("Tuzatish: " + f["fix"]), new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(*GREY)
+    pdf.multi_cell(0, 5, _latin(
+        "Avtomatik zararsiz skan (faqat o'qish so'rovlari). Faol ekspluatatsiya "
+        "va qo'lda tekshiruv alohida xizmat. Faqat ruxsat berilgan nishonlar uchun."
+    ))
+    pdf.set_text_color(0, 0, 0)
+
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"deepscan_{r['domain']}_{int(time.time())}.pdf")
+    pdf.output(path)
+    return path
+
+
 def generate_pdf(r: dict[str, Any], out_dir: str, active: dict | None = None) -> str:
     d, s, h = r["dns"], r["ssl"], r["http"]
     pdf = _PDF(format="A4")
