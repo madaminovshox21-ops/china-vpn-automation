@@ -12,7 +12,7 @@ from aiogram.types import FSInputFile
 
 from ..access import can_active_scan
 from ..keyboards import report_kb, scan_menu_kb, verify_method_kb
-from ..services import report, scanner, verify, vulnscan
+from ..services import breach, nuclei, recon, report, scanner, verify, vulnscan
 from ..states import ScanFlow, VerifyFlow
 
 SEV_EMOJI = {"CRITICAL": "🟥", "HIGH": "🟧", "MEDIUM": "🟨", "LOW": "🟦", "INFO": "⬜"}
@@ -109,6 +109,78 @@ def _fmt_deep(r: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_recon(r: dict) -> str:
+    t = r.get("tech", {})
+    subs = r.get("subdomains", [])
+    ips = r.get("ips", {})
+    lines = [f"🌐 <b>Recon — {html.escape(r['domain'])}</b>\n"]
+
+    lines.append("<b>Texnologiyalar</b>")
+    if t.get("ok"):
+        if t.get("server"):
+            lines.append(f"  Server: {html.escape(str(t['server']))}")
+        if t.get("powered_by"):
+            lines.append(f"  X-Powered-By: {html.escape(str(t['powered_by']))}")
+        techs = t.get("tech", [])
+        lines.append(f"  Aniqlangan: {html.escape(', '.join(techs)) if techs else '—'}")
+    else:
+        lines.append("  ❌ HTTP javob yo'q")
+
+    lines.append(f"\n<b>Subdomenlar ({len(subs)})</b> <i>(crt.sh, passiv)</i>")
+    if not subs:
+        lines.append("  Certificate Transparency da topilmadi.")
+    else:
+        for host in subs[:25]:
+            ip = ips.get(host)
+            lines.append(f"  • <code>{html.escape(host)}</code>" + (f" → {ip}" if ip else ""))
+        if len(subs) > 25:
+            lines.append(f"  <i>...va yana {len(subs) - 25} ta (to'liq ro'yxat PDF'da).</i>")
+
+    lines.append("\n<i>Passiv OSINT — nishonga so'rov yuborilmadi. Hujum yuzasini "
+                 "kamaytirish uchun keraksiz subdomenlarni yoping.</i>")
+    return "\n".join(lines)
+
+
+def _fmt_nuclei(r: dict) -> str:
+    findings = r.get("findings", [])
+    lines = [f"⚡ <b>Nuclei skan — {html.escape(str(r.get('target', '')))}</b>\n"]
+    if not findings:
+        lines.append("✅ Tanlangan darajalarda (critical/high/medium) muammo topilmadi.")
+        return "\n".join(lines)
+    counts: dict[str, int] = {}
+    for f in findings:
+        counts[f["sev"]] = counts.get(f["sev"], 0) + 1
+    lines.append(
+        f"🟥 {counts.get('CRITICAL', 0)}  🟧 {counts.get('HIGH', 0)}  "
+        f"🟨 {counts.get('MEDIUM', 0)}  (jami {len(findings)})\n")
+    for f in findings[:15]:
+        em = SEV_EMOJI.get(f["sev"], "•")
+        lines.append(f"{em} <b>{html.escape(str(f['title']))}</b>")
+        if f.get("detail"):
+            lines.append(f"    {html.escape(str(f['detail']))}")
+    if len(findings) > 15:
+        lines.append(f"\n<i>...va yana {len(findings) - 15} ta. To'liq ro'yxat PDF hisobotda.</i>")
+    return "\n".join(lines)
+
+
+def _fmt_breach_email(email: str, r: dict) -> str:
+    lines = [f"📧 <b>Email sizishi — {html.escape(email)}</b>\n"]
+    if not r.get("breached"):
+        lines.append("✅ Ma'lum ommaviy sizishlarda ko'rilmagan (HIBP).")
+        return "\n".join(lines)
+    breaches = r.get("breaches", [])
+    lines.append(f"🔴 <b>{len(breaches)} ta sizishda</b> ko'rilgan:\n")
+    for b in breaches[:20]:
+        lines.append(f"  • <b>{html.escape(str(b['name']))}</b> ({html.escape(str(b['date']))})")
+        if b.get("data"):
+            lines.append(f"    Sizgan: {html.escape(str(b['data']))}")
+    if len(breaches) > 20:
+        lines.append(f"  <i>...va yana {len(breaches) - 20} ta.</i>")
+    lines.append("\n<i>💡 Ushbu emaildagi barcha hisoblar parolini o'zgartiring va "
+                 "2FA yoqing.</i>")
+    return "\n".join(lines)
+
+
 def register(router_parent: Router, cfg, db) -> None:
     @router.message(F.text == "🛡 Xavfsizlik tekshiruvi")
     async def scan_menu(msg: Message):
@@ -117,8 +189,13 @@ def register(router_parent: Router, cfg, db) -> None:
             "• <b>🔎 Passiv</b> — tez ko'rinish (SSL, header, DNS).\n"
             "• <b>🔬 Chuqur skan</b> — avtomatik pentester: ochiq fayllar, CORS, TLS, "
             "cookie, HTTP metodlar + xavfsizlik bali va PDF hisobot.\n"
+            "• <b>🌐 Recon</b> — subdomenlar (crt.sh, passiv) + texnologiya aniqlash.\n"
+            "• <b>⚡ Nuclei</b> — ochiq shablonli faol zaiflik skani.\n"
             "• <b>🎯 Port skani</b> — ochiq portlar va xizmatlar.\n"
-            "• <b>➕ Domen tasdiqlash</b> — o'z domeningizni tasdiqlash.",
+            "• <b>📧 Email sizishi</b> — email ma'lumot sizishlarida ko'rilganmi (HIBP).\n"
+            "• <b>➕ Domen tasdiqlash</b> — o'z domeningizni tasdiqlash.\n\n"
+            "<i>Recon, Nuclei, Port va Email — faqat tasdiqlangan yoki ruxsat "
+            "berilgan nishonlar uchun.</i>",
             reply_markup=scan_menu_kb(),
         )
 
@@ -252,11 +329,138 @@ def register(router_parent: Router, cfg, db) -> None:
         await wait.edit_text(_fmt_deep(r))
         await msg.answer("To'liq PDF hisobotni olasizmi?", reply_markup=report_kb())
 
+    # ---- Recon (subdomen + texnologiya) — passiv OSINT, lekin gated ----
+    @router.callback_query(F.data == "scan:recon")
+    async def ask_recon(cb: CallbackQuery, state: FSMContext):
+        await state.set_state(ScanFlow.recon_domain)
+        await cb.message.answer(
+            "🌐 <b>Recon</b> — <b>tasdiqlangan</b> domeningizni yuboring.\n"
+            "Subdomenlar crt.sh (Certificate Transparency) dan olinadi (passiv), "
+            "texnologiya HTTP javobidan aniqlanadi.")
+        await cb.answer()
+
+    @router.message(ScanFlow.recon_domain)
+    async def do_recon(msg: Message, state: FSMContext):
+        await state.clear()
+        domain = scanner.normalize_domain(msg.text or "")
+        if not domain:
+            await msg.answer("❌ Domen noto'g'ri.")
+            return
+        # Passiv bo'lsa-da, hujum yuzasini ochadi — shuning uchun gated (qattiq).
+        allowed, reason = await can_active_scan(cfg, db, msg.from_user.id, domain)
+        if not allowed:
+            await msg.answer(reason)
+            return
+        wait = await msg.answer(f"🌐 <code>{domain}</code> recon qilinyapti... ({reason})")
+        try:
+            r = await recon.run_recon(domain, cfg.scan_timeout)
+        except Exception as e:
+            await wait.edit_text(f"❌ Recon xatosi: {html.escape(type(e).__name__)}: "
+                                 f"{html.escape(str(e))[:300]}")
+            return
+        await db.log_scan(msg.from_user.id, domain, "recon",
+                          f"subs={len(r.get('subdomains', []))}")
+        _last_scan[msg.from_user.id] = {"recon": r}
+        await wait.edit_text(_fmt_recon(r))
+        await msg.answer("To'liq PDF hisobotni olasizmi?", reply_markup=report_kb())
+
+    # ---- Nuclei skan (faol, gated) ----
+    @router.callback_query(F.data == "scan:nuclei")
+    async def ask_nuclei(cb: CallbackQuery, state: FSMContext):
+        if not nuclei.is_installed():
+            await cb.message.answer("⚠️ " + nuclei.INSTALL_HINT)
+            await cb.answer()
+            return
+        await state.set_state(ScanFlow.nuclei_domain)
+        await cb.message.answer(
+            "⚡ <b>Nuclei skan</b> — <b>tasdiqlangan</b> domeningizni yuboring.\n"
+            "Faol skan (nishonga so'rov yuboriladi). critical/high/medium darajalar "
+            "tekshiriladi, bir necha daqiqa olishi mumkin.")
+        await cb.answer()
+
+    @router.message(ScanFlow.nuclei_domain)
+    async def do_nuclei(msg: Message, state: FSMContext):
+        await state.clear()
+        domain = scanner.normalize_domain(msg.text or "")
+        if not domain:
+            await msg.answer("❌ Domen noto'g'ri.")
+            return
+        if not cfg.enable_active_scan:
+            await msg.answer("Faol skan admin tomonidan o'chirilgan.")
+            return
+        allowed, reason = await can_active_scan(cfg, db, msg.from_user.id, domain)
+        if not allowed:
+            await msg.answer(reason)
+            return
+        wait = await msg.answer(
+            f"⚡ <code>{domain}</code> Nuclei bilan tekshirilyapti ({reason})...\n"
+            "<i>Iltimos kuting — bu bir necha daqiqa olishi mumkin.</i>")
+        try:
+            r = await nuclei.run_nuclei(domain, cfg.scan_timeout)
+        except Exception as e:
+            await wait.edit_text(f"❌ Nuclei xatosi: {html.escape(type(e).__name__)}: "
+                                 f"{html.escape(str(e))[:300]}")
+            return
+        if not r.get("ok"):
+            await wait.edit_text("❌ " + html.escape(str(r.get("error") or "xatolik")))
+            return
+        await db.log_scan(msg.from_user.id, domain, "nuclei",
+                          f"n={len(r.get('findings', []))}")
+        _last_scan[msg.from_user.id] = {"nuclei": r}
+        await wait.edit_text(_fmt_nuclei(r))
+        await msg.answer("To'liq PDF hisobotni olasizmi?", reply_markup=report_kb())
+
+    # ---- Email sizishi (HIBP) — email domeni bo'yicha gated ----
+    @router.callback_query(F.data == "scan:breach")
+    async def ask_breach(cb: CallbackQuery, state: FSMContext):
+        await state.set_state(ScanFlow.breach_email)
+        await cb.message.answer(
+            "📧 <b>Email sizishi</b> — tekshiriladigan emailni yuboring.\n"
+            "<i>Ruxsat: faqat tasdiqlangan/ruxsat berilgan domendagi emaillar "
+            "(admin — istalgan). Email domeni tekshiriladi.</i>")
+        await cb.answer()
+
+    @router.message(ScanFlow.breach_email)
+    async def do_breach(msg: Message, state: FSMContext):
+        await state.clear()
+        email = (msg.text or "").strip().lower()
+        if "@" not in email or "." not in email.split("@")[-1] or len(email) > 254:
+            await msg.answer("❌ Email noto'g'ri. Masalan: kimdir@example.com")
+            return
+        email_domain = scanner.normalize_domain(email.split("@")[-1])
+        if not email_domain:
+            await msg.answer("❌ Email domeni noto'g'ri.")
+            return
+        # Suiiste'molning oldini olish: faqat o'z/ruxsatli domendagi emaillar.
+        allowed, reason = await can_active_scan(cfg, db, msg.from_user.id, email_domain)
+        if not allowed:
+            await msg.answer(
+                "❌ Bu emailni tekshirishga ruxsat yo'q. Faqat o'zingiz tasdiqlagan "
+                f"yoki ruxsat berilgan domendagi ({email_domain}) emaillarni "
+                "tekshira olasiz.\n\n" + reason)
+            return
+        wait = await msg.answer(f"📧 <code>{html.escape(email)}</code> tekshirilyapti...")
+        try:
+            r = await breach.check_email(email, cfg.hibp_api_key, cfg.scan_timeout)
+        except Exception as e:
+            await wait.edit_text(f"❌ Xatolik: {html.escape(type(e).__name__)}: "
+                                 f"{html.escape(str(e))[:200]}")
+            return
+        if not r.get("ok"):
+            if r.get("need_key"):
+                await wait.edit_text("⚠️ " + html.escape(str(r.get("error"))))
+            else:
+                await wait.edit_text("❌ " + html.escape(str(r.get("error") or "xatolik")))
+            return
+        await db.log_scan(msg.from_user.id, email_domain, "breach",
+                          f"breached={r.get('breached')}")
+        await wait.edit_text(_fmt_breach_email(email, r))
+
     # ---- PDF hisobot ----
     @router.callback_query(F.data == "report:pdf")
     async def send_report(cb: CallbackQuery):
         data = _last_scan.get(cb.from_user.id)
-        if not data or (not data.get("passive") and not data.get("deep")):
+        if not data or not any(data.get(k) for k in ("passive", "deep", "recon", "nuclei")):
             await cb.answer("Avval tekshiruv o'tkazing.", show_alert=True)
             return
         await cb.answer("Hujjat tayyorlanyapti...")
@@ -266,6 +470,10 @@ def register(router_parent: Router, cfg, db) -> None:
         try:
             if data.get("deep"):
                 path = await _asyncio.to_thread(report.generate_deep_pdf, data["deep"], out_dir)
+            elif data.get("recon"):
+                path = await _asyncio.to_thread(report.generate_recon_pdf, data["recon"], out_dir)
+            elif data.get("nuclei"):
+                path = await _asyncio.to_thread(report.generate_nuclei_pdf, data["nuclei"], out_dir)
             else:
                 path = await _asyncio.to_thread(
                     report.generate_pdf, data["passive"], out_dir, data.get("active"))

@@ -178,6 +178,124 @@ def generate_deep_pdf(r: dict[str, Any], out_dir: str) -> str:
     return path
 
 
+def generate_recon_pdf(r: dict[str, Any], out_dir: str) -> str:
+    """Recon (subdomen + texnologiya) natijasidan PDF hisobot."""
+    pdf = _PDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 20)
+    pdf.cell(0, 10, _latin(r["domain"]), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*GREY)
+    pdf.cell(0, 6, _latin("Recon (passiv OSINT) - " +
+             time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(2)
+
+    t = r.get("tech", {})
+    _h2(pdf, "Texnologiyalar")
+    if t.get("ok"):
+        _kv(pdf, "Server:", str(t.get("server") or "-"))
+        _kv(pdf, "X-Powered-By:", str(t.get("powered_by") or "-"))
+        _kv(pdf, "Aniqlangan:", ", ".join(t.get("tech", [])) or "-")
+    else:
+        _kv(pdf, "Holat:", "javob yo'q", BAD)
+
+    subs = r.get("subdomains", [])
+    ips = r.get("ips", {})
+    _h2(pdf, f"Subdomenlar ({len(subs)})")
+    if not subs:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.multi_cell(0, 6, _latin("Certificate Transparency (crt.sh) da topilmadi."),
+                       new_x="LMARGIN", new_y="NEXT")
+    for host in subs:
+        ip = ips.get(host)
+        _kv(pdf, host + ":", str(ip or "(hal qilinmadi)"))
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(*GREY)
+    pdf.multi_cell(0, 5, _latin(
+        "Subdomenlar Certificate Transparency (crt.sh) ochiq jurnalidan olingan - "
+        "nishonga hech qanday so'rov yuborilmagan. Texnologiya HTTP javobidan aniqlangan. "
+        "Faqat ruxsat berilgan nishonlar uchun."
+    ))
+    pdf.set_text_color(0, 0, 0)
+
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, f"recon_{r['domain']}_{int(time.time())}.pdf")
+    pdf.output(path)
+    return path
+
+
+def generate_nuclei_pdf(r: dict[str, Any], out_dir: str) -> str:
+    """Nuclei skan natijasidan PDF hisobot."""
+    pdf = _PDF(format="A4")
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    target = r.get("target", "-")
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(0, 10, _latin(target), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*GREY)
+    pdf.cell(0, 6, _latin("Nuclei skan - " +
+             time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(2)
+
+    findings = r.get("findings", [])
+    counts: dict[str, int] = {}
+    for f in findings:
+        counts[f["sev"]] = counts.get(f["sev"], 0) + 1
+    _h2(pdf, "Xulosa")
+    _kv(pdf, "Jami topilma:", str(len(findings)), BAD if findings else OKC)
+    _kv(pdf, "Kritik:", str(counts.get("CRITICAL", 0)), BAD if counts.get("CRITICAL") else None)
+    _kv(pdf, "Yuqori:", str(counts.get("HIGH", 0)), BAD if counts.get("HIGH") else None)
+    _kv(pdf, "O'rta:", str(counts.get("MEDIUM", 0)), WARN if counts.get("MEDIUM") else None)
+
+    _h2(pdf, "Topilmalar")
+    if not findings:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.multi_cell(0, 6, _latin("Nuclei tanlangan darajalarda muammo topmadi."),
+                       new_x="LMARGIN", new_y="NEXT")
+    for i, f in enumerate(findings, 1):
+        col = SEV_COLOR.get(f["sev"], (0, 0, 0))
+        pdf.set_x(pdf.l_margin)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*col)
+        pdf.cell(24, 6, f"[{f['sev'][:4]}]", new_x="RIGHT", new_y="TOP")
+        pdf.set_text_color(0, 0, 0)
+        avail = pdf.w - pdf.r_margin - pdf.l_margin - 24
+        pdf.multi_cell(avail, 6, _latin(f"{i}. {f['title']}"), new_x="LMARGIN", new_y="NEXT")
+        detail = f.get("detail") or ""
+        if f.get("template"):
+            detail = (detail + f"  [{f['template']}]").strip()
+        if detail:
+            pdf.set_x(pdf.l_margin + 24)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(*GREY)
+            pdf.multi_cell(avail, 5, _latin(detail), new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(*GREY)
+    pdf.multi_cell(0, 5, _latin(
+        "Nuclei (ProjectDiscovery) ochiq shablonlar asosidagi faol skan. Faqat "
+        "tasdiqlangan yoki ruxsat berilgan nishonlar uchun o'tkaziladi."
+    ))
+    pdf.set_text_color(0, 0, 0)
+
+    os.makedirs(out_dir, exist_ok=True)
+    safe = "".join(ch if ch.isalnum() else "_" for ch in target)[:40]
+    path = os.path.join(out_dir, f"nuclei_{safe}_{int(time.time())}.pdf")
+    pdf.output(path)
+    return path
+
+
 def generate_pdf(r: dict[str, Any], out_dir: str, active: dict | None = None) -> str:
     d, s, h = r["dns"], r["ssl"], r["http"]
     pdf = _PDF(format="A4")

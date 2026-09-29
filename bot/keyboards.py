@@ -32,7 +32,10 @@ def scan_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔎 Passiv tekshiruv (bepul)", callback_data="scan:passive")],
         [InlineKeyboardButton(text="🔬 Chuqur skan (auto-pentester)", callback_data="scan:deep")],
+        [InlineKeyboardButton(text="🌐 Recon (subdomen + texnologiya)", callback_data="scan:recon")],
+        [InlineKeyboardButton(text="⚡ Nuclei skan", callback_data="scan:nuclei")],
         [InlineKeyboardButton(text="🎯 Port skani", callback_data="scan:active")],
+        [InlineKeyboardButton(text="📧 Email sizishi (HIBP)", callback_data="scan:breach")],
         [InlineKeyboardButton(text="➕ Domen tasdiqlash", callback_data="verify:add")],
     ])
 
