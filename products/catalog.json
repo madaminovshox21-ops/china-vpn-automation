@@ -1,0 +1,30 @@
+[
+  {
+    "title": "Web Pentest Cheat Sheet",
+    "description": "To'liq web pentest metodologiyasi: recon, auth, IDOR, injection, XSS, SSRF, business logic, reporting + checklist. PDF.",
+    "price_stars": 150,
+    "kind": "path",
+    "file": "web-pentest-cheatsheet.pdf"
+  },
+  {
+    "title": "CTF Writeups Pack",
+    "description": "3 ta batafsil web CTF yechimi (JWT alg=none, IDOR, Blind SQLi): tahlil + exploit + saboq. PDF.",
+    "price_stars": 120,
+    "kind": "path",
+    "file": "ctf-writeups.pdf"
+  },
+  {
+    "title": "Recon Scripts Pack",
+    "description": "Tayyor recon bash skriptlari: to'liq quvur (subdomen->host->port->nuclei) va tez SSL/header tekshiruvi. ZIP.",
+    "price_stars": 200,
+    "kind": "path",
+    "file": "recon-scripts.zip"
+  },
+  {
+    "title": "Nuclei Templates Pack",
+    "description": "Keng tarqalgan misconfig'larni aniqlovchi Nuclei shablonlari: ochiq .env, .git, yo'q xavfsizlik header'lari. ZIP.",
+    "price_stars": 180,
+    "kind": "path",
+    "file": "nuclei-templates.zip"
+  }
+]

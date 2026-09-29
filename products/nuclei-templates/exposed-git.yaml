@@ -1,0 +1,24 @@
+id: exposed-git-config
+
+info:
+  name: Ochiq .git/config
+  author: sentryscan
+  severity: medium
+  description: .git papkasi ochiq bo'lsa, manba kod va tarix yuklab olinishi mumkin.
+  tags: exposure,git,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+    matchers-condition: and
+    matchers:
+      - type: word
+        part: body
+        words:
+          - "[core]"
+          - "repositoryformatversion"
+        condition: and
+      - type: status
+        status:
+          - 200
